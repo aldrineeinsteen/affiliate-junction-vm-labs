@@ -75,12 +75,13 @@ echo -e "${BLUE}Starting HCD...${NC}"
 INITIAL_PID=$!
 echo -e "${BLUE}HCD startup initiated...${NC}"
 
-# Wait up to 60 seconds for HCD to start, checking every 5 seconds
-MAX_WAIT=60
+# Wait up to 120 seconds for HCD to start, checking every 3 seconds
+# HCD can take 60+ seconds on slower systems or when replaying commit logs
+MAX_WAIT=120
 ELAPSED=0
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-    sleep 5
-    ELAPSED=$((ELAPSED + 5))
+    sleep 3
+    ELAPSED=$((ELAPSED + 3))
     
     # Check if HCD is accepting connections on port 9042
     # Try both localhost and Docker bridge IP
