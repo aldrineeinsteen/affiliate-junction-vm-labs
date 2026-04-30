@@ -68,6 +68,23 @@ if pgrep -f "cassandra|hcd" > /dev/null; then
     echo -e "${GREEN}✓ Existing processes stopped${NC}"
 fi
 
+# Configure HCD to listen on all interfaces (0.0.0.0) for cloud access
+echo -e "${BLUE}Configuring HCD for public access...${NC}"
+HCD_CONFIG="./hcd-1.2.3/resources/cassandra/conf/cassandra.yaml"
+if [ -f "$HCD_CONFIG" ]; then
+    # Backup original config
+    cp "$HCD_CONFIG" "${HCD_CONFIG}.backup" 2>/dev/null || true
+    
+    # Configure HCD to listen on all interfaces
+    sed -i 's/^listen_address: localhost/listen_address: 0.0.0.0/' "$HCD_CONFIG"
+    sed -i 's/^rpc_address: localhost/rpc_address: 0.0.0.0/' "$HCD_CONFIG"
+    sed -i 's/^# broadcast_rpc_address:.*/broadcast_rpc_address: 0.0.0.0/' "$HCD_CONFIG"
+    
+    echo -e "${GREEN}✓ HCD configured to listen on all interfaces${NC}"
+else
+    echo -e "${YELLOW}⚠ HCD config not found, will use defaults${NC}"
+fi
+
 # Start HCD in background
 echo -e "${BLUE}Starting HCD...${NC}"
 # Use -R flag to allow running as root (required for cloud deployments)
@@ -141,6 +158,17 @@ echo -e "${BLUE}Initializing HCD schema...${NC}"
 # Use 127.0.0.1 explicitly to force IPv4 (localhost may resolve to IPv6 ::1)
 ./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -f hcd_schema.cql
 echo -e "${GREEN}✓ HCD schema initialized${NC}"
+
+# Open firewall port for HCD
+echo ""
+echo -e "${BLUE}Configuring firewall for HCD access...${NC}"
+if command -v firewall-cmd >/dev/null 2>&1; then
+    sudo firewall-cmd --permanent --add-port=9042/tcp 2>/dev/null || true
+    sudo firewall-cmd --reload 2>/dev/null || true
+    echo -e "${GREEN}✓ Firewall configured (port 9042 open)${NC}"
+else
+    echo -e "${YELLOW}⚠ firewall-cmd not found, skipping firewall configuration${NC}"
+fi
 
 # Bootstrap infrastructure
 echo ""
