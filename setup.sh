@@ -58,24 +58,58 @@ else
     fi
 fi
 
+# Check for and kill any existing HCD/Cassandra processes
+echo -e "${BLUE}Checking for existing HCD processes...${NC}"
+if pgrep -f "cassandra|hcd" > /dev/null; then
+    echo -e "${YELLOW}⚠ Found existing HCD/Cassandra processes, stopping them...${NC}"
+    pkill -9 -f cassandra 2>/dev/null || true
+    pkill -9 -f hcd 2>/dev/null || true
+    sleep 2
+    echo -e "${GREEN}✓ Existing processes stopped${NC}"
+fi
+
 # Start HCD in background
 echo -e "${BLUE}Starting HCD...${NC}"
 # Use -R flag to allow running as root (required for cloud deployments)
-./hcd-1.2.3/bin/hcd cassandra -R > /dev/null 2>&1 &
+./hcd-1.2.3/bin/hcd cassandra -R > /tmp/hcd_startup.log 2>&1 &
 HCD_PID=$!
 echo -e "${BLUE}Waiting for HCD to start (PID: $HCD_PID)...${NC}"
-sleep 30
 
-# Check if HCD is running
-if ps -p $HCD_PID > /dev/null; then
-    echo -e "${GREEN}✓ HCD started successfully${NC}"
-else
-    echo -e "${RED}✗ HCD failed to start${NC}"
-    echo -e "${YELLOW}Checking for error messages...${NC}"
-    # Try to get more info about why it failed
-    if [ -f "./hcd-1.2.3/logs/system.log" ]; then
-        echo -e "${YELLOW}Last 20 lines of system.log:${NC}"
-        tail -20 ./hcd-1.2.3/logs/system.log
+# Wait up to 60 seconds for HCD to start, checking every 5 seconds
+MAX_WAIT=60
+ELAPSED=0
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+    
+    # Check if process is still running
+    if ! ps -p $HCD_PID > /dev/null; then
+        echo -e "${RED}✗ HCD process died during startup${NC}"
+        echo -e "${YELLOW}Startup log:${NC}"
+        cat /tmp/hcd_startup.log
+        exit 1
+    fi
+    
+    # Check if HCD is accepting connections on port 9042
+    if nc -z 172.17.0.1 9042 2>/dev/null; then
+        echo -e "${GREEN}✓ HCD started successfully (took ${ELAPSED}s)${NC}"
+        break
+    fi
+    
+    echo -e "${BLUE}  Still starting... (${ELAPSED}s/${MAX_WAIT}s)${NC}"
+done
+
+# Final check
+if ! nc -z 172.17.0.1 9042 2>/dev/null; then
+    echo -e "${RED}✗ HCD failed to start within ${MAX_WAIT} seconds${NC}"
+    echo -e "${YELLOW}Checking logs...${NC}"
+    if [ -f "/var/log/cassandra/system.log" ]; then
+        echo -e "${YELLOW}Last 30 lines of system.log:${NC}"
+        tail -30 /var/log/cassandra/system.log
+    fi
+    if [ -f "/tmp/hcd_startup.log" ]; then
+        echo -e "${YELLOW}Startup log:${NC}"
+        cat /tmp/hcd_startup.log
     fi
     exit 1
 fi
