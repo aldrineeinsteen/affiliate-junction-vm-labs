@@ -2,3 +2,7 @@
 .env
 *.sw?
 *.pyc
+
+# Cloud deployment files
+.cloud-connection-info
+.ssh/affiliate-junction-key*

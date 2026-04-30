@@ -19,6 +19,7 @@ This project also includes a WUI with views application to a number of distinct 
 - [wx.d Interface](#wxd-interface)
 - [Other Interfaces](#other-interfaces)
 - [Install](#install)
+- [IBM Cloud Deployment](#ibm-cloud-deployment)
 - [Troubleshooting](#troubleshooting)
 
 ### Additional Documentation
@@ -239,6 +240,59 @@ The console also includes a SQL interface to enter your own queries.  This may b
 
 <img width="1522" alt="image" src="https://github.ibm.com/Data-Labs/affiliate-junction-demo/assets/521800/f326419e-60a7-4faa-9c16-47e810f2849e">
 
+
+
+## IBM Cloud Deployment
+
+This project can be deployed to IBM Cloud using automated provisioning scripts. The deployment creates a RHEL 9 VM with all necessary networking and security configurations.
+
+### Quick Start
+
+```bash
+# 1. Install IBM Cloud CLI and authenticate
+ibmcloud login --sso
+
+# 2. Run the cloud setup script
+./setup-cloud.sh
+
+# 3. SSH into the VM (use the command provided by setup script)
+ssh -i ~/.ssh/affiliate-junction-key root@<PUBLIC_IP>
+
+# 4. Clone and setup the application
+git clone https://github.ibm.com/Data-Labs/affiliate-junction-demo
+cd affiliate-junction-demo
+./setup.sh
+
+# 5. Access the application
+# Web UI: http://<PUBLIC_IP>:10000
+# Presto Console: http://<PUBLIC_IP>:8080
+```
+
+### What Gets Provisioned
+
+- **VM Instance**: RHEL 9 with 2 vCPUs and 8GB RAM
+- **Region**: eu-de (Frankfurt)
+- **Networking**: VPC, subnet, and floating IP
+- **Security Group**: Configured for ports 22, 9042, 8080, 8443, 10000
+- **SSH Key**: Auto-generated and uploaded
+
+### Prerequisites
+
+- IBM Cloud CLI installed
+- Access to a resource group starting with `itz-`
+- `jq` and `curl` installed locally
+
+### Cleanup
+
+To remove all cloud resources:
+
+```bash
+./teardown-cloud.sh
+```
+
+### Detailed Documentation
+
+For complete deployment instructions, troubleshooting, and advanced configuration, see [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md).
 
 
 ## Install
