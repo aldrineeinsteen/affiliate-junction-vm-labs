@@ -14,46 +14,10 @@ echo -e "${BLUE}Affiliate Junction Demo Setup${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Check for HCD/Presto prerequisites
-echo -e "${BLUE}Checking watsonx.data prerequisites...${NC}"
-HCD_MISSING=false
-PRESTO_MISSING=false
-
-if [ ! -d "./hcd-1.2.3" ] && [ ! -f "/usr/local/bin/hcd" ]; then
-    echo -e "${RED}✗ HCD (Cassandra) not found${NC}"
-    HCD_MISSING=true
-else
-    echo -e "${GREEN}✓ HCD installation detected${NC}"
-fi
-
-if ! command -v presto &> /dev/null && [ ! -f "/usr/local/bin/presto" ]; then
-    echo -e "${YELLOW}⚠ Presto not found in PATH${NC}"
-    PRESTO_MISSING=true
-else
-    echo -e "${GREEN}✓ Presto installation detected${NC}"
-fi
-
-if [ "$HCD_MISSING" = true ] || [ "$PRESTO_MISSING" = true ]; then
-    echo ""
-    echo -e "${YELLOW}========================================${NC}"
-    echo -e "${YELLOW}IMPORTANT: watsonx.data Components Required${NC}"
-    echo -e "${YELLOW}========================================${NC}"
-    echo ""
-    echo -e "${YELLOW}This demo requires a watsonx.data environment with:${NC}"
-    echo -e "  - HCD (Hyperconverged Database / Cassandra)"
-    echo -e "  - Presto with Iceberg support"
-    echo ""
-    echo -e "${YELLOW}This setup script will install Python dependencies and${NC}"
-    echo -e "${YELLOW}configure services, but cannot install watsonx.data components.${NC}"
-    echo ""
-    echo -e "${YELLOW}For IBM Cloud deployment, consider using:${NC}"
-    echo -e "  - watsonx.data Developer Edition from IBM TechZone"
-    echo -e "  - Pre-configured watsonx.data environment"
-    echo ""
-    echo -e "${YELLOW}Continuing with setup (services will fail without HCD/Presto)...${NC}"
-    echo ""
-    sleep 5
-fi
+# Install system prerequisites
+echo -e "${BLUE}Installing system prerequisites...${NC}"
+sudo dnf install -y unzip > /dev/null 2>&1
+echo -e "${GREEN}✓ System prerequisites installed${NC}"
 
 # Download and install HCD if not present
 echo ""
