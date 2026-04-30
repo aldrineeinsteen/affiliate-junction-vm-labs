@@ -119,17 +119,17 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     ELAPSED=$((ELAPSED + 3))
     
     # Check if HCD is accepting connections on port 9042
-    # Use bash's /dev/tcp as fallback if nc not available
+    # Use the PRIVATE_IP that HCD is actually listening on
     if command -v nc >/dev/null 2>&1; then
-        # Try both localhost and Docker bridge IP with nc
-        if nc -z localhost 9042 2>/dev/null || nc -z 127.0.0.1 9042 2>/dev/null || nc -z 172.17.0.1 9042 2>/dev/null; then
-            echo -e "${GREEN}✓ HCD started successfully (took ${ELAPSED}s)${NC}"
+        # Check private IP (where HCD is actually listening)
+        if nc -z ${PRIVATE_IP} 9042 2>/dev/null; then
+            echo -e "${GREEN}✓ HCD started successfully on ${PRIVATE_IP}:9042 (took ${ELAPSED}s)${NC}"
             break
         fi
     else
         # Fallback to /dev/tcp if nc not available
-        if (echo > /dev/tcp/localhost/9042) 2>/dev/null || (echo > /dev/tcp/127.0.0.1/9042) 2>/dev/null; then
-            echo -e "${GREEN}✓ HCD started successfully (took ${ELAPSED}s)${NC}"
+        if (echo > /dev/tcp/${PRIVATE_IP}/9042) 2>/dev/null; then
+            echo -e "${GREEN}✓ HCD started successfully on ${PRIVATE_IP}:9042 (took ${ELAPSED}s)${NC}"
             break
         fi
     fi
