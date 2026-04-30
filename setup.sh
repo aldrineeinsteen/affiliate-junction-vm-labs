@@ -68,29 +68,33 @@ if pgrep -f "cassandra|hcd" > /dev/null; then
     echo -e "${GREEN}✓ Existing processes stopped${NC}"
 fi
 
-# Configure HCD to listen on public interface for cloud access
+# Configure HCD for cloud access with proper IP binding
 echo -e "${BLUE}Configuring HCD for public access...${NC}"
 HCD_CONFIG="./hcd-1.2.3/resources/cassandra/conf/cassandra.yaml"
 if [ -f "$HCD_CONFIG" ]; then
     # Backup original config
     cp "$HCD_CONFIG" "${HCD_CONFIG}.backup" 2>/dev/null || true
     
-    # Get the VM's public IP address (not private IP)
-    VM_IP=$(curl -s ifconfig.me)
-    if [ -z "$VM_IP" ]; then
-        VM_IP=$(hostname -I | awk '{print $1}')
+    # Get PRIVATE IP (what HCD binds to) and PUBLIC IP (what clients use)
+    PRIVATE_IP=$(hostname -I | awk '{print $1}')
+    PUBLIC_IP=$(curl -s ifconfig.me)
+    
+    # Fallback if curl fails
+    if [ -z "$PUBLIC_IP" ]; then
+        PUBLIC_IP="$PRIVATE_IP"
     fi
     
-    echo -e "${BLUE}Configuring HCD to listen on: ${VM_IP}${NC}"
+    echo -e "${BLUE}Private IP (bind): ${PRIVATE_IP}${NC}"
+    echo -e "${BLUE}Public IP (broadcast): ${PUBLIC_IP}${NC}"
     
-    # Configure HCD to listen on the VM's IP address
-    # Replace any existing values (localhost, 0.0.0.0, or old IPs)
-    sed -i "s/^listen_address:.*/listen_address: ${VM_IP}/" "$HCD_CONFIG"
-    sed -i "s/^rpc_address:.*/rpc_address: ${VM_IP}/" "$HCD_CONFIG"
-    sed -i "s/^broadcast_rpc_address:.*/broadcast_rpc_address: ${VM_IP}/" "$HCD_CONFIG"
-    sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: ${VM_IP}/" "$HCD_CONFIG"
+    # HCD must bind to the PRIVATE IP (actual interface)
+    # But broadcast the PUBLIC IP to clients
+    sed -i "s/^listen_address:.*/listen_address: ${PRIVATE_IP}/" "$HCD_CONFIG"
+    sed -i "s/^rpc_address:.*/rpc_address: ${PRIVATE_IP}/" "$HCD_CONFIG"
+    sed -i "s/^broadcast_rpc_address:.*/broadcast_rpc_address: ${PUBLIC_IP}/" "$HCD_CONFIG"
+    sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: ${PUBLIC_IP}/" "$HCD_CONFIG"
     
-    echo -e "${GREEN}✓ HCD configured to listen on ${VM_IP}${NC}"
+    echo -e "${GREEN}✓ HCD configured: bind=${PRIVATE_IP}, broadcast=${PUBLIC_IP}${NC}"
 else
     echo -e "${YELLOW}⚠ HCD config not found, will use defaults${NC}"
 fi
