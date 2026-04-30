@@ -6,3 +6,9 @@
 # Cloud deployment files
 .cloud-connection-info
 .ssh/affiliate-junction-key*
+access-info.txt
+
+# HCD installation
+hcd-*/
+HCD_*.zip
+*.tar.gz
