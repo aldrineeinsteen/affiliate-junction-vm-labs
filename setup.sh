@@ -138,8 +138,8 @@ fi
 
 # Initialize HCD schema
 echo -e "${BLUE}Initializing HCD schema...${NC}"
-# Use localhost since HCD binds to localhost/127.0.0.1, not Docker bridge IP
-./hcd-1.2.3/bin/hcd cqlsh localhost -u cassandra -p cassandra -f hcd_schema.cql
+# Use 127.0.0.1 explicitly to force IPv4 (localhost may resolve to IPv6 ::1)
+./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -f hcd_schema.cql
 echo -e "${GREEN}✓ HCD schema initialized${NC}"
 
 # Bootstrap infrastructure
