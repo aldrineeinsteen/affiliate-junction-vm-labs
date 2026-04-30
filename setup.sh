@@ -58,11 +58,20 @@ else
     fi
 fi
 
-# Start HCD
+# Start HCD in background
 echo -e "${BLUE}Starting HCD...${NC}"
-./hcd-1.2.3/bin/hcd start
-sleep 10
-echo -e "${GREEN}✓ HCD started${NC}"
+./hcd-1.2.3/bin/hcd cassandra > /dev/null 2>&1 &
+HCD_PID=$!
+echo -e "${BLUE}Waiting for HCD to start (PID: $HCD_PID)...${NC}"
+sleep 30
+
+# Check if HCD is running
+if ps -p $HCD_PID > /dev/null; then
+    echo -e "${GREEN}✓ HCD started successfully${NC}"
+else
+    echo -e "${RED}✗ HCD failed to start${NC}"
+    exit 1
+fi
 
 # Initialize HCD schema
 echo -e "${BLUE}Initializing HCD schema...${NC}"
