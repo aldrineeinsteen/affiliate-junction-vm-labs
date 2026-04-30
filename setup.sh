@@ -75,17 +75,19 @@ if [ -f "$HCD_CONFIG" ]; then
     # Backup original config
     cp "$HCD_CONFIG" "${HCD_CONFIG}.backup" 2>/dev/null || true
     
-    # Get the VM's public/primary IP address
-    VM_IP=$(hostname -I | awk '{print $1}')
+    # Get the VM's public IP address (not private IP)
+    VM_IP=$(curl -s ifconfig.me)
     if [ -z "$VM_IP" ]; then
-        VM_IP=$(curl -s ifconfig.me)
+        VM_IP=$(hostname -I | awk '{print $1}')
     fi
     
     echo -e "${BLUE}Configuring HCD to listen on: ${VM_IP}${NC}"
     
     # Configure HCD to listen on the VM's IP address
-    sed -i "s/^listen_address: localhost/listen_address: ${VM_IP}/" "$HCD_CONFIG"
-    sed -i "s/^rpc_address: localhost/rpc_address: ${VM_IP}/" "$HCD_CONFIG"
+    # Replace any existing values (localhost, 0.0.0.0, or old IPs)
+    sed -i "s/^listen_address:.*/listen_address: ${VM_IP}/" "$HCD_CONFIG"
+    sed -i "s/^rpc_address:.*/rpc_address: ${VM_IP}/" "$HCD_CONFIG"
+    sed -i "s/^broadcast_rpc_address:.*/broadcast_rpc_address: ${VM_IP}/" "$HCD_CONFIG"
     sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: ${VM_IP}/" "$HCD_CONFIG"
     
     echo -e "${GREEN}✓ HCD configured to listen on ${VM_IP}${NC}"
