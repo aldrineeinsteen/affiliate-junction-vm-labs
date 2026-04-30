@@ -72,8 +72,8 @@ fi
 echo -e "${BLUE}Starting HCD...${NC}"
 # Use -R flag to allow running as root (required for cloud deployments)
 ./hcd-1.2.3/bin/hcd cassandra -R > /tmp/hcd_startup.log 2>&1 &
-HCD_PID=$!
-echo -e "${BLUE}Waiting for HCD to start (PID: $HCD_PID)...${NC}"
+INITIAL_PID=$!
+echo -e "${BLUE}HCD startup initiated...${NC}"
 
 # Wait up to 60 seconds for HCD to start, checking every 5 seconds
 MAX_WAIT=60
@@ -82,18 +82,18 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     sleep 5
     ELAPSED=$((ELAPSED + 5))
     
-    # Check if process is still running
-    if ! ps -p $HCD_PID > /dev/null; then
-        echo -e "${RED}✗ HCD process died during startup${NC}"
-        echo -e "${YELLOW}Startup log:${NC}"
-        cat /tmp/hcd_startup.log
-        exit 1
-    fi
-    
     # Check if HCD is accepting connections on port 9042
     if nc -z 172.17.0.1 9042 2>/dev/null; then
         echo -e "${GREEN}✓ HCD started successfully (took ${ELAPSED}s)${NC}"
         break
+    fi
+    
+    # Check if any HCD/Cassandra process is running (HCD forks, so original PID exits)
+    if ! pgrep -f "cassandra|hcd" > /dev/null; then
+        echo -e "${RED}✗ HCD process failed to start${NC}"
+        echo -e "${YELLOW}Startup log:${NC}"
+        cat /tmp/hcd_startup.log
+        exit 1
     fi
     
     echo -e "${BLUE}  Still starting... (${ELAPSED}s/${MAX_WAIT}s)${NC}"
