@@ -94,7 +94,11 @@ if [ -f "$HCD_CONFIG" ]; then
     sed -i "s/^broadcast_rpc_address:.*/broadcast_rpc_address: ${PUBLIC_IP}/" "$HCD_CONFIG"
     sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: ${PUBLIC_IP}/" "$HCD_CONFIG"
     
-    echo -e "${GREEN}✓ HCD configured: bind=${PRIVATE_IP}, broadcast=${PUBLIC_IP}${NC}"
+    # CRITICAL: Fix seed_provider to use PRIVATE IP for single-node cluster
+    # HCD tries to gossip with seeds, must match listen_address
+    sed -i "s/- seeds: \"127.0.0.1\"/- seeds: \"${PRIVATE_IP}\"/" "$HCD_CONFIG"
+    
+    echo -e "${GREEN}✓ HCD configured: bind=${PRIVATE_IP}, broadcast=${PUBLIC_IP}, seeds=${PRIVATE_IP}${NC}"
 else
     echo -e "${YELLOW}⚠ HCD config not found, will use defaults${NC}"
 fi
