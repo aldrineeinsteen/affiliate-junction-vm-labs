@@ -68,19 +68,27 @@ if pgrep -f "cassandra|hcd" > /dev/null; then
     echo -e "${GREEN}✓ Existing processes stopped${NC}"
 fi
 
-# Configure HCD to listen on all interfaces (0.0.0.0) for cloud access
+# Configure HCD to listen on public interface for cloud access
 echo -e "${BLUE}Configuring HCD for public access...${NC}"
 HCD_CONFIG="./hcd-1.2.3/resources/cassandra/conf/cassandra.yaml"
 if [ -f "$HCD_CONFIG" ]; then
     # Backup original config
     cp "$HCD_CONFIG" "${HCD_CONFIG}.backup" 2>/dev/null || true
     
-    # Configure HCD to listen on all interfaces
-    sed -i 's/^listen_address: localhost/listen_address: 0.0.0.0/' "$HCD_CONFIG"
-    sed -i 's/^rpc_address: localhost/rpc_address: 0.0.0.0/' "$HCD_CONFIG"
-    sed -i 's/^# broadcast_rpc_address:.*/broadcast_rpc_address: 0.0.0.0/' "$HCD_CONFIG"
+    # Get the VM's public/primary IP address
+    VM_IP=$(hostname -I | awk '{print $1}')
+    if [ -z "$VM_IP" ]; then
+        VM_IP=$(curl -s ifconfig.me)
+    fi
     
-    echo -e "${GREEN}✓ HCD configured to listen on all interfaces${NC}"
+    echo -e "${BLUE}Configuring HCD to listen on: ${VM_IP}${NC}"
+    
+    # Configure HCD to listen on the VM's IP address
+    sed -i "s/^listen_address: localhost/listen_address: ${VM_IP}/" "$HCD_CONFIG"
+    sed -i "s/^rpc_address: localhost/rpc_address: ${VM_IP}/" "$HCD_CONFIG"
+    sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: ${VM_IP}/" "$HCD_CONFIG"
+    
+    echo -e "${GREEN}✓ HCD configured to listen on ${VM_IP}${NC}"
 else
     echo -e "${YELLOW}⚠ HCD config not found, will use defaults${NC}"
 fi
