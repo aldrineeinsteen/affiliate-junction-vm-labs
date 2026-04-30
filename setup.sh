@@ -138,7 +138,8 @@ fi
 
 # Initialize HCD schema
 echo -e "${BLUE}Initializing HCD schema...${NC}"
-./hcd-1.2.3/bin/hcd cqlsh 172.17.0.1 -u cassandra -p cassandra -f hcd_schema.cql
+# Use localhost since HCD binds to localhost/127.0.0.1, not Docker bridge IP
+./hcd-1.2.3/bin/hcd cqlsh localhost -u cassandra -p cassandra -f hcd_schema.cql
 echo -e "${GREEN}✓ HCD schema initialized${NC}"
 
 # Bootstrap infrastructure
