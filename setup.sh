@@ -83,7 +83,8 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     ELAPSED=$((ELAPSED + 5))
     
     # Check if HCD is accepting connections on port 9042
-    if nc -z 172.17.0.1 9042 2>/dev/null; then
+    # Try both localhost and Docker bridge IP
+    if nc -z localhost 9042 2>/dev/null || nc -z 127.0.0.1 9042 2>/dev/null || nc -z 172.17.0.1 9042 2>/dev/null; then
         echo -e "${GREEN}✓ HCD started successfully (took ${ELAPSED}s)${NC}"
         break
     fi
@@ -100,7 +101,7 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
 done
 
 # Final check
-if ! nc -z 172.17.0.1 9042 2>/dev/null; then
+if ! nc -z localhost 9042 2>/dev/null && ! nc -z 127.0.0.1 9042 2>/dev/null && ! nc -z 172.17.0.1 9042 2>/dev/null; then
     echo -e "${RED}✗ HCD failed to start within ${MAX_WAIT} seconds${NC}"
     echo -e "${YELLOW}Checking logs...${NC}"
     if [ -f "/var/log/cassandra/system.log" ]; then
