@@ -45,10 +45,27 @@ git config --global user.name "Your Name"
 # Enable backend services
 echo ""
 echo -e "${BLUE}Configuring systemd services...${NC}"
-sudo cp *.service /etc/systemd/system/
+
+# Get current directory and user
+CURRENT_DIR=$(pwd)
+CURRENT_USER=$(whoami)
+
+# Update service files with correct paths and user
+echo -e "${BLUE}Updating service files with correct paths...${NC}"
+for service_file in *.service; do
+    if [ -f "$service_file" ]; then
+        # Create temporary file with updated paths
+        sed -e "s|/home/watsonx/affiliate-junction-demo|${CURRENT_DIR}|g" \
+            -e "s|User=watsonx|User=${CURRENT_USER}|g" \
+            "$service_file" > "/tmp/${service_file}"
+        sudo cp "/tmp/${service_file}" /etc/systemd/system/
+        rm "/tmp/${service_file}"
+    fi
+done
+
 sudo systemctl daemon-reload
 sudo systemctl enable generate_traffic hcd_to_presto presto_to_hcd presto_insights presto_cleanup uvicorn.service truncate_all_tables.service
-echo -e "${GREEN}✓ Services enabled${NC}"
+echo -e "${GREEN}✓ Services configured and enabled${NC}"
 
 echo ""
 echo -e "${BLUE}Starting services...${NC}"
