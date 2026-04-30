@@ -440,13 +440,25 @@ provision_vm() {
     # Get the public key content for cloud-init (workaround for IBM Cloud CLI bug)
     local ssh_public_key=$(cat "${SSH_KEY_PATH}.pub")
     
-    # Create cloud-init user-data to inject SSH key
+    # Create cloud-init user-data to inject SSH key and install prerequisites
     local user_data=$(cat <<EOF
 #cloud-config
 users:
   - name: root
     ssh_authorized_keys:
       - ${ssh_public_key}
+
+packages:
+  - git
+  - python3
+  - python3-pip
+  - java-11-openjdk-devel
+  - wget
+  - curl
+  - jq
+
+runcmd:
+  - echo "Prerequisites installed successfully" > /root/cloud-init-complete.txt
 EOF
 )
     

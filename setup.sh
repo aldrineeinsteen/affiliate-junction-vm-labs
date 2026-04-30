@@ -60,7 +60,8 @@ fi
 
 # Start HCD in background
 echo -e "${BLUE}Starting HCD...${NC}"
-./hcd-1.2.3/bin/hcd cassandra > /dev/null 2>&1 &
+# Use -R flag to allow running as root (required for cloud deployments)
+./hcd-1.2.3/bin/hcd cassandra -R > /dev/null 2>&1 &
 HCD_PID=$!
 echo -e "${BLUE}Waiting for HCD to start (PID: $HCD_PID)...${NC}"
 sleep 30
@@ -70,6 +71,12 @@ if ps -p $HCD_PID > /dev/null; then
     echo -e "${GREEN}✓ HCD started successfully${NC}"
 else
     echo -e "${RED}✗ HCD failed to start${NC}"
+    echo -e "${YELLOW}Checking for error messages...${NC}"
+    # Try to get more info about why it failed
+    if [ -f "./hcd-1.2.3/logs/system.log" ]; then
+        echo -e "${YELLOW}Last 20 lines of system.log:${NC}"
+        tail -20 ./hcd-1.2.3/logs/system.log
+    fi
     exit 1
 fi
 

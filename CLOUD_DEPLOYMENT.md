@@ -1,5 +1,14 @@
 # IBM Cloud Deployment Guide
 
+## Overview
+
+This guide covers deploying the Affiliate Junction demo to IBM Cloud. The demo supports two Presto deployment models:
+
+1. **watsonx.data Developer Edition** (Local) - Original design, Presto runs locally
+2. **watsonx.data Enterprise** (Cloud) - Presto as managed IBM Cloud service
+
+This guide focuses on **IBM Cloud deployment with watsonx.data Enterprise**.
+
 This guide provides detailed instructions for deploying the Affiliate Junction demo application on IBM Cloud using automated provisioning scripts.
 
 ## Table of Contents
@@ -17,6 +26,26 @@ This guide provides detailed instructions for deploying the Affiliate Junction d
 
 The IBM Cloud deployment automates the provisioning of a RHEL 9 virtual machine with all necessary networking and security configurations to run the Affiliate Junction demo application.
 
+### ⚠️ Critical Prerequisite: watsonx.data Components Required
+
+**This demo requires watsonx.data components (HCD and Presto) to be pre-installed.** The automated scripts provision infrastructure and install Python dependencies, but **do not install watsonx.data components**.
+
+#### Recommended Deployment Approaches
+
+1. **IBM TechZone watsonx.data Developer Edition** (Recommended)
+   - Pre-configured with HCD (Cassandra) and Presto
+   - Collection: https://techzone.ibm.com/collection/ibm-watsonxdata-developer-base-image--hcd-cassandra
+   - Clone this repository on the TechZone environment and run `./setup.sh`
+
+2. **Custom watsonx.data Installation**
+   - Install watsonx.data Developer Edition on your IBM Cloud VM first
+   - Then clone this repository and run `./setup.sh`
+
+3. **Standalone Deployment** (Limited - Infrastructure Testing Only)
+   - The scripts will provision VM and Python environment
+   - **Services will fail without HCD/Presto**
+   - Useful only for testing infrastructure provisioning
+
 ### What Gets Provisioned
 
 - **VM Instance**: RHEL 9 with 2 vCPUs and 8GB RAM (bx2-2x8 profile)
@@ -32,6 +61,77 @@ The IBM Cloud deployment automates the provisioning of a RHEL 9 virtual machine 
 | 9042  | HCD/Cassandra     | Database access                |
 | 8080  | Presto Console    | Presto web interface           |
 | 8443  | Presto HTTPS      | Presto secure API              |
+## Architecture Models
+
+### Model 1: watsonx.data Developer Edition (Local)
+
+**Original Design** - All components run on the same VM:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ IBM Cloud VM (RHEL 9)                                   │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │ HCD          │  │ Presto       │  │ Web UI       │ │
+│  │ (Cassandra)  │  │ (Local)      │  │ (Port 10000) │ │
+│  │ Port 9042    │  │ Port 8443    │  │              │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│         ▲                 ▲                  ▲          │
+│         │                 │                  │          │
+│         └─────────────────┴──────────────────┘          │
+│                  Python Services                        │
+│         (generate_traffic, hcd_to_presto, etc.)        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Setup:**
+- Use TechZone watsonx.data Developer Edition
+- Or install watsonx.data Developer Edition manually
+- Presto hostname: `ibm-lh-presto-svc` (added to /etc/hosts)
+- Certificates in `/certs/` directory
+- Credentials in `/certs/passwords` file
+
+### Model 2: watsonx.data Enterprise (Cloud)
+
+**IBM Cloud Deployment** - Presto as managed service:
+
+```
+┌─────────────────────────────────────┐
+│ IBM Cloud VM (RHEL 9)               │
+│                                     │
+│  ┌──────────────┐  ┌──────────────┐│
+│  │ HCD          │  │ Web UI       ││
+│  │ (Cassandra)  │  │ (Port 10000) ││
+│  │ Port 9042    │  │              ││
+│  └──────────────┘  └──────────────┘│
+│         ▲                 ▲         │
+│         │                 │         │
+│         └─────────────────┘         │
+│          Python Services            │
+└─────────────────┬───────────────────┘
+                  │
+                  │ HTTPS (Port 8443)
+                  ▼
+┌─────────────────────────────────────┐
+│ watsonx.data Enterprise (IBM Cloud) │
+│                                     │
+│  ┌──────────────────────────────┐  │
+│  │ Presto Engine (Managed)      │  │
+│  │ c-wxdata-xxx.lakehouse...    │  │
+│  │ Port 8443                    │  │
+│  └──────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+**Setup:**
+- Provision watsonx.data instance in IBM Cloud
+- Use `configure-presto.sh` to connect VM to cloud Presto
+- Presto hostname: Cloud endpoint (e.g., `c-wxdata-xxx.lakehouse.cloud.ibm.com`)
+- Certificate downloaded from watsonx.data console
+- Credentials from TechZone or console
+
+**This guide covers Model 2 (watsonx.data Enterprise).**
+
 | 10000 | Web UI            | Application web interface      |
 
 ## Prerequisites
@@ -135,19 +235,49 @@ Once connected to the VM:
 git clone https://github.ibm.com/Data-Labs/affiliate-junction-demo
 cd affiliate-junction-demo
 
-# Run the setup script
+# Run the setup script (installs HCD locally)
 ./setup.sh
 ```
 
-The setup process takes approximately 5-10 minutes.
+The setup process takes approximately 5-10 minutes and installs:
+- HCD (Cassandra) locally on the VM
+- Python virtual environment and dependencies
+- Systemd services for data generation and ETL
 
-### 5. Access the Application
+### 5. Configure Presto Connection (watsonx.data Enterprise)
+
+**For watsonx.data Enterprise (Cloud Presto)**, configure the connection:
+
+```bash
+# Run the Presto configuration helper
+./configure-presto.sh
+```
+
+You'll be prompted for:
+- **Presto Hostname**: From watsonx.data console (e.g., `c-wxdata-itz-wxd-xxx.lakehouse.cloud.ibm.com`)
+- **Presto Port**: Usually `8443`
+- **Username**: Usually `ibmlhadmin`
+- **Password**: From TechZone reservation or console
+- **Catalog**: Usually `iceberg_data`
+- **Schema**: Usually `affiliate_junction`
+
+The script will:
+1. Update `/etc/hosts` to map `ibm-lh-presto-svc` to your Presto endpoint
+2. Update `.env` file with connection details
+3. Download the Presto SSL certificate to `/certs/presto.crt`
+
+**For watsonx.data Developer Edition (Local Presto)**, skip this step - the setup.sh script already configured everything.
+
+### 6. Access the Application
 
 After setup completes, access the application using the URLs provided:
 
 - **Web UI**: `http://<PUBLIC_IP>:10000`
   - Login: `watsonx` / `watsonx.data`
-- **Presto Console**: `http://<PUBLIC_IP>:8080`
+- **HCD (Cassandra)**: `<PUBLIC_IP>:9042`
+  - Access via: `./hcd-1.2.3/bin/hcd cqlsh <PUBLIC_IP> -u cassandra -p cassandra`
+
+**Note**: For watsonx.data Enterprise, Presto console is accessed through the IBM Cloud watsonx.data dashboard, not directly from the VM.
 
 ## Detailed Setup
 
