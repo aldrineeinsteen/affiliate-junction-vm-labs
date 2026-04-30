@@ -83,13 +83,19 @@ echo ""
 echo -e "${BLUE}Configuring system...${NC}"
 sudo perl -i -pe 'if($.==1 && !/ibm-lh-presto-svc/){s/$/ ibm-lh-presto-svc/}' /etc/hosts
 
-# Install Java 17 if not already installed (Java 11 is already present from cloud-init)
-if ! java -version 2>&1 | grep -q "17"; then
-    echo -e "${BLUE}Installing Java 17...${NC}"
-    sudo dnf -y install java-17-openjdk java-17-openjdk-devel
-else
-    echo -e "${GREEN}✓ Java already installed${NC}"
+# Ensure Java 11 is installed and set as default (HCD requires Java 11)
+echo -e "${BLUE}Configuring Java 11 for HCD...${NC}"
+if ! java -version 2>&1 | grep -q "11"; then
+    echo -e "${BLUE}Java 11 already installed from cloud-init${NC}"
 fi
+
+# Set Java 11 as the default
+sudo alternatives --set java /usr/lib/jvm/java-11-openjdk-11.0.25.0.9-4.el9.x86_64/bin/java 2>/dev/null || \
+sudo alternatives --set java $(alternatives --display java | grep 'family java-11-openjdk' | awk '{print $1}' | head -1) 2>/dev/null || \
+echo -e "${YELLOW}⚠ Could not set Java 11 as default, HCD may fail${NC}"
+
+java -version 2>&1 | head -1
+echo -e "${GREEN}✓ Java configured${NC}"
 
 # Bootstrap python environment
 echo ""
