@@ -297,6 +297,32 @@ setup_security_group() {
     
     if [ -n "$sg_id" ] && [ "$sg_id" != "null" ]; then
         print_info "Security group already exists: ${SECURITY_GROUP_NAME}" >&2
+        print_info "Updating security group rules for new client IP..." >&2
+        
+        # Get existing inbound TCP rules
+        local existing_rules=$(ibmcloud is security-group-rules "$sg_id" --output json | jq -r '.[] | select(.direction=="inbound" and .protocol=="tcp") | .id')
+        
+        # Delete old inbound TCP rules (they have old client IP)
+        if [ -n "$existing_rules" ]; then
+            print_info "  Removing old inbound rules..." >&2
+            while IFS= read -r rule_id; do
+                ibmcloud is security-group-rule-delete "$sg_id" "$rule_id" -f > /dev/null 2>&1 || true
+            done <<< "$existing_rules"
+        fi
+        
+        # Add new rules with current client IP
+        print_info "  Adding rules for current client IP..." >&2
+        for i in "${!PORTS[@]}"; do
+            local port="${PORTS[$i]}"
+            local desc="${PORT_DESCRIPTIONS[$i]}"
+            
+            print_info "    ${desc} (port ${port})..." >&2
+            ibmcloud is security-group-rule-add "$sg_id" inbound tcp \
+                --port-min "$port" --port-max "$port" \
+                --remote "$client_ip" > /dev/null 2>&1 || true
+        done
+        
+        print_success "Security group rules updated" >&2
     else
         print_info "Creating security group..." >&2
         sg_id=$(ibmcloud is security-group-create "${SECURITY_GROUP_NAME}" "$vpc_id" --resource-group-name "$RESOURCE_GROUP" --output json | jq -r '.id')

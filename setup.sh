@@ -104,11 +104,21 @@ else
 fi
 
 # Start HCD in background
-echo -e "${BLUE}Starting HCD...${NC}"
+echo ""
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Starting HCD (Hyperconverged Database)${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Configuration:${NC}"
+echo -e "${BLUE}  Listen Address: ${PRIVATE_IP}:7000 (inter-node)${NC}"
+echo -e "${BLUE}  RPC Address: ${PRIVATE_IP}:9042 (client connections)${NC}"
+echo -e "${BLUE}  Broadcast Address: ${PUBLIC_IP} (advertised to clients)${NC}"
+echo -e "${BLUE}  Seeds: ${PRIVATE_IP}:7000${NC}"
+echo ""
+echo -e "${BLUE}Starting HCD process...${NC}"
 # Use -R flag to allow running as root (required for cloud deployments)
 ./hcd-1.2.3/bin/hcd cassandra -R > /tmp/hcd_startup.log 2>&1 &
 INITIAL_PID=$!
-echo -e "${BLUE}HCD startup initiated...${NC}"
+echo -e "${BLUE}Waiting for HCD to accept connections (max 120s)...${NC}"
 
 # Wait up to 120 seconds for HCD to start, checking every 3 seconds
 # HCD can take 60+ seconds on slower systems or when replaying commit logs
@@ -165,10 +175,28 @@ if [ "$HCD_STARTED" = false ]; then
 fi
 
 # Initialize HCD schema
-echo -e "${BLUE}Initializing HCD schema...${NC}"
-# Use 127.0.0.1 explicitly to force IPv4 (localhost may resolve to IPv6 ::1)
-./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -f hcd_schema.cql
-echo -e "${GREEN}✓ HCD schema initialized${NC}"
+echo ""
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Initializing HCD Schema${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Connecting to HCD at ${PRIVATE_IP}:9042...${NC}"
+# Use PRIVATE_IP where HCD is actually listening
+if ./hcd-1.2.3/bin/hcd cqlsh ${PRIVATE_IP} -u cassandra -p cassandra -f hcd_schema.cql 2>&1 | tee /tmp/schema_init.log; then
+    echo -e "${GREEN}✓ HCD schema initialized successfully${NC}"
+else
+    echo -e "${RED}✗ Failed to initialize HCD schema${NC}"
+    echo -e "${YELLOW}Schema initialization log:${NC}"
+    cat /tmp/schema_init.log
+    echo -e "${YELLOW}Checking HCD status...${NC}"
+    if pgrep -f "cassandra|hcd" > /dev/null; then
+        echo -e "${GREEN}HCD process is running${NC}"
+        echo -e "${YELLOW}Trying to connect with cqlsh...${NC}"
+        ./hcd-1.2.3/bin/hcd cqlsh ${PRIVATE_IP} -u cassandra -p cassandra -e "DESCRIBE KEYSPACES;" || true
+    else
+        echo -e "${RED}HCD process is not running${NC}"
+    fi
+    exit 1
+fi
 
 # Open firewall port for HCD
 echo ""
