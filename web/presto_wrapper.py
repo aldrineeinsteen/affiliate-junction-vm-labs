@@ -177,6 +177,7 @@ class PrestoQueryWrapper:
                 schema=os.getenv('PRESTO_SCHEMA'),
                 http_scheme='https',
                 auth=prestodb.auth.BasicAuthentication(
+                    os.getenv('PRESTO_USER'),
                     os.getenv('PRESTO_PASSWD')
                 )
             )

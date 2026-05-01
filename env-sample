@@ -33,4 +33,6 @@ PRESTO_USER=ibmlhadmin
 PRESTO_PASSWD=password
 PRESTO_CATALOG=iceberg_data
 PRESTO_SCHEMA=affiliate_junction
+# Set to 'false' to disable SSL certificate verification (useful for watsonx.data SaaS where cert doesn't match engine hostname)
+# PRESTO_SSL_VERIFY=false
 
