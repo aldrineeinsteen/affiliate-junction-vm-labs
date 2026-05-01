@@ -14,10 +14,16 @@ echo -e "${BLUE}Presto Configuration Helper${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Check if .env exists
+# Check if .env exists, create from env-sample if not
 if [ ! -f ".env" ]; then
-    echo -e "${RED}✗ .env file not found. Run setup.sh first.${NC}"
-    exit 1
+    if [ -f "env-sample" ]; then
+        echo -e "${YELLOW}Creating .env from env-sample...${NC}"
+        cp env-sample .env
+        echo -e "${GREEN}✓ .env file created${NC}"
+    else
+        echo -e "${RED}✗ env-sample file not found${NC}"
+        exit 1
+    fi
 fi
 
 echo -e "${YELLOW}This script will help you configure the Presto connection to watsonx.data${NC}"
