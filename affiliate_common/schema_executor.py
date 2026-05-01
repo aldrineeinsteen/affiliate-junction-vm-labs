@@ -151,6 +151,11 @@ class SchemaExecutor:
             with open(schema_file_path, 'r') as f:
                 schema_content = f.read()
             
+            # Replace catalog name with the one from environment
+            catalog_name = os.getenv('PRESTO_CATALOG', 'iceberg_data')
+            schema_content = schema_content.replace('iceberg_data.', f'{catalog_name}.')
+            logger.info(f"Using Presto catalog: {catalog_name}")
+            
             # Remove comments and split by semicolons
             lines = schema_content.split('\n')
             cleaned_lines = []
