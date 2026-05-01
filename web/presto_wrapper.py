@@ -196,10 +196,13 @@ class PrestoQueryWrapper:
                 def request_with_bearer_token(method, url, **kwargs):
                     # Remove any existing auth
                     kwargs.pop('auth', None)
-                    # Add Bearer token
+                    # Add Bearer token and required headers
                     if 'headers' not in kwargs:
                         kwargs['headers'] = {}
                     kwargs['headers']['Authorization'] = f'Bearer {token}'
+                    # Ensure X-Presto-User is set (prestodb should set this, but make sure)
+                    if 'X-Presto-User' not in kwargs['headers']:
+                        kwargs['headers']['X-Presto-User'] = os.getenv('PRESTO_USER')
                     return original_request(method, url, **kwargs)
                 
                 connection._http_session.request = request_with_bearer_token
