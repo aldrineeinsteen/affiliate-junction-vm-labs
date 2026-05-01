@@ -85,16 +85,19 @@ echo -e "${GREEN}✓ /etc/hosts updated${NC}"
 # Detect if this is watsonx.data SaaS (username starts with ibmlhapikey_)
 USE_IAM="false"
 SSL_VERIFY="true"
+PRESTO_HOST_VALUE="ibm-lh-presto-svc"  # Default for local/developer edition
+
 if [[ "$PRESTO_USER" == ibmlhapikey_* ]]; then
     USE_IAM="true"
     SSL_VERIFY="false"  # SaaS typically needs SSL verification disabled
+    PRESTO_HOST_VALUE="$PRESTO_HOSTNAME"  # Use full hostname for SaaS
     echo -e "${YELLOW}Detected watsonx.data SaaS - enabling IAM authentication${NC}"
+    echo -e "${YELLOW}Using full hostname for SaaS: ${PRESTO_HOSTNAME}${NC}"
 fi
 
 # Update .env file
 echo -e "${BLUE}Updating .env file...${NC}"
-# Use ibm-lh-presto-svc as the host (will be resolved via /etc/hosts)
-sed -i "s|^PRESTO_HOST=.*|PRESTO_HOST=ibm-lh-presto-svc|" .env
+sed -i "s|^PRESTO_HOST=.*|PRESTO_HOST=${PRESTO_HOST_VALUE}|" .env
 sed -i "s|^PRESTO_PORT=.*|PRESTO_PORT=${PRESTO_PORT}|" .env
 sed -i "s|^PRESTO_USER=.*|PRESTO_USER=${PRESTO_USER}|" .env
 sed -i "s|^PRESTO_PASSWD=.*|PRESTO_PASSWD=${PRESTO_PASSWD}|" .env
@@ -118,9 +121,10 @@ if [ "$SSL_VERIFY" = "false" ]; then
     echo -e "${YELLOW}✓ SSL verification disabled (PRESTO_SSL_VERIFY=false)${NC}"
 fi
 
-echo -e "${GREEN}✓ .env file updated (PRESTO_HOST=ibm-lh-presto-svc)${NC}"
+echo -e "${GREEN}✓ .env file updated (PRESTO_HOST=${PRESTO_HOST_VALUE})${NC}"
 if [ "$USE_IAM" = "true" ]; then
     echo -e "${GREEN}✓ IAM authentication enabled (PRESTO_USE_IAM=true)${NC}"
+    echo -e "${GREEN}✓ Using full hostname for SaaS (no /etc/hosts mapping needed)${NC}"
 fi
 
 # Get SSL certificate from user
@@ -209,8 +213,13 @@ echo -e "     ${GREEN}source .venv/bin/activate${NC}"
 echo -e "     ${GREEN}python3 -c 'from web.presto_wrapper import presto_wrapper; print(presto_wrapper.execute_query_simple(\"SELECT 1\"))'${NC}"
 echo -e "  4. Access Web UI: ${GREEN}http://$(curl -s ifconfig.me):10000${NC}"
 echo ""
-echo -e "${YELLOW}Note: PRESTO_HOST is set to 'ibm-lh-presto-svc' which resolves to${NC}"
-echo -e "${YELLOW}      ${PRESTO_HOSTNAME} via /etc/hosts${NC}"
+if [ "$USE_IAM" = "true" ]; then
+    echo -e "${YELLOW}Note: For watsonx.data SaaS, PRESTO_HOST is set to the full hostname:${NC}"
+    echo -e "${YELLOW}      ${PRESTO_HOSTNAME}${NC}"
+else
+    echo -e "${YELLOW}Note: PRESTO_HOST is set to 'ibm-lh-presto-svc' which resolves to${NC}"
+    echo -e "${YELLOW}      ${PRESTO_HOSTNAME} via /etc/hosts${NC}"
+fi
 echo ""
 
 # Made with Bob
