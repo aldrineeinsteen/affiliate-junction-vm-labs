@@ -483,7 +483,7 @@ class PrestoConnection:
     
     def connect(self):
         """Establish connection to Presto"""
-        try:           
+        try:
             self.connection = prestodb.dbapi.connect(
                 host=os.getenv('PRESTO_HOST'),
                 port=int(os.getenv('PRESTO_PORT')),
@@ -492,11 +492,19 @@ class PrestoConnection:
                 schema=os.getenv('PRESTO_SCHEMA'),
                 http_scheme='https',
                 auth=prestodb.auth.BasicAuthentication(
-                    os.getenv('PRESTO_USER'), 
+                    os.getenv('PRESTO_USER'),
                     os.getenv('PRESTO_PASSWD')
                 )
             )
-            self.connection._http_session.verify = "/certs/presto.crt"
+            
+            # Configure SSL verification based on environment variable
+            ssl_verify = os.getenv('PRESTO_SSL_VERIFY', 'true').lower()
+            if ssl_verify == 'false':
+                self.connection._http_session.verify = False
+                logger.warning("SSL verification disabled for Presto connection (PRESTO_SSL_VERIFY=false)")
+            else:
+                self.connection._http_session.verify = "/certs/presto.crt"
+                logger.info("SSL verification enabled using /certs/presto.crt")
             
             logger.info(f"Connected to Presto at {os.getenv('PRESTO_HOST')}:{os.getenv('PRESTO_PORT')}")
             return self.connection
