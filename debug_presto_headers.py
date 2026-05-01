@@ -32,7 +32,7 @@ connection = prestodb.dbapi.connect(
 # Disable SSL verification
 connection._http_session.verify = False
 
-# Wrap the request method to log headers
+# Wrap the request method to log headers and capture response
 original_request = connection._http_session.request
 def debug_request(method, url, **kwargs):
     print(f"\n=== Request Debug ===")
@@ -56,7 +56,15 @@ def debug_request(method, url, **kwargs):
     print(f"\nModified Headers: {kwargs['headers']}")
     print("===================\n")
     
-    return original_request(method, url, **kwargs)
+    response = original_request(method, url, **kwargs)
+    
+    print(f"\n=== Response Debug ===")
+    print(f"Status Code: {response.status_code}")
+    print(f"Response Headers: {dict(response.headers)}")
+    print(f"Response Body: {response.text[:500]}")  # First 500 chars
+    print("===================\n")
+    
+    return response
 
 connection._http_session.request = debug_request
 
