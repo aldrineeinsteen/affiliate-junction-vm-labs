@@ -155,11 +155,20 @@ if [ -n "$PRESTO_SCHEMA_LOCATION" ]; then
     fi
 fi
 
-# Set IAM authentication flag
+# Set IAM authentication flag and API key
 if grep -q "^PRESTO_USE_IAM=" .env; then
     sed -i "s|^PRESTO_USE_IAM=.*|PRESTO_USE_IAM=${USE_IAM}|" .env
 else
     echo "PRESTO_USE_IAM=${USE_IAM}" >> .env
+fi
+
+# For SaaS (IAM auth), also set IBM_CLOUD_API_KEY
+if [ "$USE_IAM" = "true" ]; then
+    if grep -q "^IBM_CLOUD_API_KEY=" .env; then
+        sed -i "s|^IBM_CLOUD_API_KEY=.*|IBM_CLOUD_API_KEY=${PRESTO_PASSWD}|" .env
+    else
+        echo "IBM_CLOUD_API_KEY=${PRESTO_PASSWD}" >> .env
+    fi
 fi
 
 # Set SSL verification flag

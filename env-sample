@@ -60,5 +60,9 @@ PRESTO_USE_IAM=false
 
 # Set to 'false' to disable SSL certificate verification
 # Useful for watsonx.data SaaS where cert domain doesn't match engine hostname
+# For automated watsonx.data infrastructure setup (optional):
+# Get instance ID from: watsonx.data console → Instance details
+# WATSONX_DATA_INSTANCE_ID=your_instance_id_here
+# WATSONX_DATA_REGION=eu-de
 # PRESTO_SSL_VERIFY=false
 
