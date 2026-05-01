@@ -484,18 +484,54 @@ class PrestoConnection:
     def connect(self):
         """Establish connection to Presto"""
         try:
-            self.connection = prestodb.dbapi.connect(
-                host=os.getenv('PRESTO_HOST'),
-                port=int(os.getenv('PRESTO_PORT')),
-                user=os.getenv('PRESTO_USER'),
-                catalog=os.getenv('PRESTO_CATALOG'),
-                schema=os.getenv('PRESTO_SCHEMA'),
-                http_scheme='https',
-                auth=prestodb.auth.BasicAuthentication(
-                    os.getenv('PRESTO_USER'),
-                    os.getenv('PRESTO_PASSWD')
+            # Check if using watsonx.data SaaS (IAM authentication)
+            use_iam = os.getenv('PRESTO_USE_IAM', 'false').lower() == 'true'
+            
+            if use_iam:
+                # IAM authentication for watsonx.data SaaS
+                from .iam_token_manager import get_iam_token
+                
+                # Connect without authentication (we'll add Bearer token to session)
+                self.connection = prestodb.dbapi.connect(
+                    host=os.getenv('PRESTO_HOST'),
+                    port=int(os.getenv('PRESTO_PORT')),
+                    user=os.getenv('PRESTO_USER'),
+                    catalog=os.getenv('PRESTO_CATALOG'),
+                    schema=os.getenv('PRESTO_SCHEMA'),
+                    http_scheme='https'
                 )
-            )
+                
+                # Get IAM token and configure session
+                token = get_iam_token()
+                
+                # Replace Authorization header with Bearer token
+                original_request = self.connection._http_session.request
+                def request_with_bearer_token(method, url, **kwargs):
+                    # Remove any existing auth
+                    kwargs.pop('auth', None)
+                    # Add Bearer token
+                    if 'headers' not in kwargs:
+                        kwargs['headers'] = {}
+                    kwargs['headers']['Authorization'] = f'Bearer {token}'
+                    return original_request(method, url, **kwargs)
+                
+                self.connection._http_session.request = request_with_bearer_token
+                logger.info("Using IAM Bearer token authentication for watsonx.data SaaS")
+            else:
+                # Basic authentication for local/developer edition
+                self.connection = prestodb.dbapi.connect(
+                    host=os.getenv('PRESTO_HOST'),
+                    port=int(os.getenv('PRESTO_PORT')),
+                    user=os.getenv('PRESTO_USER'),
+                    catalog=os.getenv('PRESTO_CATALOG'),
+                    schema=os.getenv('PRESTO_SCHEMA'),
+                    http_scheme='https',
+                    auth=prestodb.auth.BasicAuthentication(
+                        os.getenv('PRESTO_USER'),
+                        os.getenv('PRESTO_PASSWD')
+                    )
+                )
+                logger.info("Using Basic Authentication for Presto")
             
             # Configure SSL verification based on environment variable
             ssl_verify = os.getenv('PRESTO_SSL_VERIFY', 'true').lower()

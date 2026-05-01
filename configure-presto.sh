@@ -82,6 +82,15 @@ else
 fi
 echo -e "${GREEN}✓ /etc/hosts updated${NC}"
 
+# Detect if this is watsonx.data SaaS (username starts with ibmlhapikey_)
+USE_IAM="false"
+SSL_VERIFY="true"
+if [[ "$PRESTO_USER" == ibmlhapikey_* ]]; then
+    USE_IAM="true"
+    SSL_VERIFY="false"  # SaaS typically needs SSL verification disabled
+    echo -e "${YELLOW}Detected watsonx.data SaaS - enabling IAM authentication${NC}"
+fi
+
 # Update .env file
 echo -e "${BLUE}Updating .env file...${NC}"
 # Use ibm-lh-presto-svc as the host (will be resolved via /etc/hosts)
@@ -91,7 +100,28 @@ sed -i "s|^PRESTO_USER=.*|PRESTO_USER=${PRESTO_USER}|" .env
 sed -i "s|^PRESTO_PASSWD=.*|PRESTO_PASSWD=${PRESTO_PASSWD}|" .env
 sed -i "s|^PRESTO_CATALOG=.*|PRESTO_CATALOG=${PRESTO_CATALOG}|" .env
 sed -i "s|^PRESTO_SCHEMA=.*|PRESTO_SCHEMA=${PRESTO_SCHEMA}|" .env
+
+# Set IAM authentication flag
+if grep -q "^PRESTO_USE_IAM=" .env; then
+    sed -i "s|^PRESTO_USE_IAM=.*|PRESTO_USE_IAM=${USE_IAM}|" .env
+else
+    echo "PRESTO_USE_IAM=${USE_IAM}" >> .env
+fi
+
+# Set SSL verification flag
+if [ "$SSL_VERIFY" = "false" ]; then
+    if grep -q "^PRESTO_SSL_VERIFY=" .env; then
+        sed -i "s|^PRESTO_SSL_VERIFY=.*|PRESTO_SSL_VERIFY=false|" .env
+    else
+        echo "PRESTO_SSL_VERIFY=false" >> .env
+    fi
+    echo -e "${YELLOW}✓ SSL verification disabled (PRESTO_SSL_VERIFY=false)${NC}"
+fi
+
 echo -e "${GREEN}✓ .env file updated (PRESTO_HOST=ibm-lh-presto-svc)${NC}"
+if [ "$USE_IAM" = "true" ]; then
+    echo -e "${GREEN}✓ IAM authentication enabled (PRESTO_USE_IAM=true)${NC}"
+fi
 
 # Get SSL certificate from user
 echo ""
