@@ -114,6 +114,8 @@ echo -e "${BLUE}HCD startup initiated...${NC}"
 # HCD can take 60+ seconds on slower systems or when replaying commit logs
 MAX_WAIT=120
 ELAPSED=0
+HCD_STARTED=false
+
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     sleep 3
     ELAPSED=$((ELAPSED + 3))
@@ -124,12 +126,14 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
         # Check private IP (where HCD is actually listening)
         if nc -z ${PRIVATE_IP} 9042 2>/dev/null; then
             echo -e "${GREEN}✓ HCD started successfully on ${PRIVATE_IP}:9042 (took ${ELAPSED}s)${NC}"
+            HCD_STARTED=true
             break
         fi
     else
         # Fallback to /dev/tcp if nc not available
         if (echo > /dev/tcp/${PRIVATE_IP}/9042) 2>/dev/null; then
             echo -e "${GREEN}✓ HCD started successfully on ${PRIVATE_IP}:9042 (took ${ELAPSED}s)${NC}"
+            HCD_STARTED=true
             break
         fi
     fi
@@ -145,19 +149,8 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     echo -e "${BLUE}  Still starting... (${ELAPSED}s/${MAX_WAIT}s)${NC}"
 done
 
-# Final check
-PORT_OPEN=false
-if command -v nc >/dev/null 2>&1; then
-    if nc -z localhost 9042 2>/dev/null || nc -z 127.0.0.1 9042 2>/dev/null || nc -z 172.17.0.1 9042 2>/dev/null; then
-        PORT_OPEN=true
-    fi
-else
-    if (echo > /dev/tcp/localhost/9042) 2>/dev/null || (echo > /dev/tcp/127.0.0.1/9042) 2>/dev/null; then
-        PORT_OPEN=true
-    fi
-fi
-
-if [ "$PORT_OPEN" = false ]; then
+# Check if HCD started successfully
+if [ "$HCD_STARTED" = false ]; then
     echo -e "${RED}✗ HCD failed to start within ${MAX_WAIT} seconds${NC}"
     echo -e "${YELLOW}Checking logs...${NC}"
     if [ -f "/var/log/cassandra/system.log" ]; then
