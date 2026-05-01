@@ -42,11 +42,6 @@ read -p "Presto Schema [affiliate_junction]: " PRESTO_SCHEMA
 PRESTO_SCHEMA=${PRESTO_SCHEMA:-affiliate_junction}
 
 echo ""
-echo -e "${BLUE}SSL Certificate:${NC}"
-echo -e "${YELLOW}Please paste the SSL certificate (including BEGIN/END lines), then press Ctrl+D:${NC}"
-PRESTO_CERT=$(cat)
-
-echo ""
 echo -e "${BLUE}Configuration Summary:${NC}"
 echo -e "  Hostname: ${PRESTO_HOSTNAME}"
 echo -e "  Port: ${PRESTO_PORT}"
@@ -54,7 +49,6 @@ echo -e "  Username: ${PRESTO_USER}"
 echo -e "  Password: ********"
 echo -e "  Catalog: ${PRESTO_CATALOG}"
 echo -e "  Schema: ${PRESTO_SCHEMA}"
-echo -e "  Certificate: $(echo "$PRESTO_CERT" | wc -l) lines"
 echo ""
 
 read -p "Is this correct? (y/n): " CONFIRM
@@ -92,22 +86,36 @@ sed -i "s|^PRESTO_CATALOG=.*|PRESTO_CATALOG=${PRESTO_CATALOG}|" .env
 sed -i "s|^PRESTO_SCHEMA=.*|PRESTO_SCHEMA=${PRESTO_SCHEMA}|" .env
 echo -e "${GREEN}✓ .env file updated${NC}"
 
-# Save certificate
+# Fetch and save SSL certificate automatically
 echo ""
-echo -e "${BLUE}Saving Presto certificate...${NC}"
+echo -e "${BLUE}Fetching SSL certificate from Presto endpoint...${NC}"
 sudo mkdir -p /certs
-echo "$PRESTO_CERT" | sudo tee /certs/presto.crt > /dev/null
-sudo chmod 644 /certs/presto.crt
-echo -e "${GREEN}✓ Certificate saved to /certs/presto.crt${NC}"
 
-# Verify certificate
-if openssl x509 -in /certs/presto.crt -text -noout > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ Certificate is valid${NC}"
-    CERT_SUBJECT=$(openssl x509 -in /certs/presto.crt -subject -noout | sed 's/subject=//')
-    echo -e "${BLUE}  Subject: ${CERT_SUBJECT}${NC}"
+# Fetch certificate from the server
+if echo | openssl s_client -connect "${PRESTO_HOSTNAME}:${PRESTO_PORT}" -servername "${PRESTO_HOSTNAME}" 2>/dev/null | openssl x509 -outform PEM | sudo tee /certs/presto.crt > /dev/null; then
+    sudo chmod 644 /certs/presto.crt
+    echo -e "${GREEN}✓ Certificate fetched and saved to /certs/presto.crt${NC}"
+    
+    # Verify certificate
+    if openssl x509 -in /certs/presto.crt -text -noout > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Certificate is valid${NC}"
+        CERT_SUBJECT=$(openssl x509 -in /certs/presto.crt -subject -noout | sed 's/subject=//')
+        CERT_ISSUER=$(openssl x509 -in /certs/presto.crt -issuer -noout | sed 's/issuer=//')
+        CERT_DATES=$(openssl x509 -in /certs/presto.crt -dates -noout)
+        echo -e "${BLUE}  Subject: ${CERT_SUBJECT}${NC}"
+        echo -e "${BLUE}  Issuer: ${CERT_ISSUER}${NC}"
+        echo -e "${BLUE}  ${CERT_DATES}${NC}"
+    else
+        echo -e "${RED}✗ Certificate validation failed${NC}"
+        exit 1
+    fi
 else
-    echo -e "${RED}✗ Certificate validation failed${NC}"
-    echo -e "${YELLOW}Please check the certificate format${NC}"
+    echo -e "${RED}✗ Failed to fetch certificate from ${PRESTO_HOSTNAME}:${PRESTO_PORT}${NC}"
+    echo -e "${YELLOW}Please check:${NC}"
+    echo -e "  • Hostname and port are correct"
+    echo -e "  • Server is accessible from this machine"
+    echo -e "  • Firewall allows outbound HTTPS connections"
+    exit 1
 fi
 
 echo ""
