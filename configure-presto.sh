@@ -84,13 +84,14 @@ echo -e "${GREEN}✓ /etc/hosts updated${NC}"
 
 # Update .env file
 echo -e "${BLUE}Updating .env file...${NC}"
-sed -i "s|^PRESTO_HOST=.*|PRESTO_HOST=${PRESTO_HOSTNAME}|" .env
+# Use ibm-lh-presto-svc as the host (will be resolved via /etc/hosts)
+sed -i "s|^PRESTO_HOST=.*|PRESTO_HOST=ibm-lh-presto-svc|" .env
 sed -i "s|^PRESTO_PORT=.*|PRESTO_PORT=${PRESTO_PORT}|" .env
 sed -i "s|^PRESTO_USER=.*|PRESTO_USER=${PRESTO_USER}|" .env
 sed -i "s|^PRESTO_PASSWD=.*|PRESTO_PASSWD=${PRESTO_PASSWD}|" .env
 sed -i "s|^PRESTO_CATALOG=.*|PRESTO_CATALOG=${PRESTO_CATALOG}|" .env
 sed -i "s|^PRESTO_SCHEMA=.*|PRESTO_SCHEMA=${PRESTO_SCHEMA}|" .env
-echo -e "${GREEN}✓ .env file updated${NC}"
+echo -e "${GREEN}✓ .env file updated (PRESTO_HOST=ibm-lh-presto-svc)${NC}"
 
 # Fetch and save SSL certificate automatically
 echo ""
@@ -143,8 +144,8 @@ echo -e "     ${GREEN}source .venv/bin/activate${NC}"
 echo -e "     ${GREEN}python3 -c 'from web.presto_wrapper import presto_wrapper; print(presto_wrapper.execute_query_simple(\"SELECT 1\"))'${NC}"
 echo -e "  4. Access Web UI: ${GREEN}http://$(curl -s ifconfig.me):10000${NC}"
 echo ""
-echo -e "${YELLOW}Note: The demo uses the actual Presto hostname (${PRESTO_HOSTNAME})${NC}"
-echo -e "${YELLOW}      not 'ibm-lh-presto-svc' as in Developer Edition${NC}"
+echo -e "${YELLOW}Note: PRESTO_HOST is set to 'ibm-lh-presto-svc' which resolves to${NC}"
+echo -e "${YELLOW}      ${PRESTO_HOSTNAME} via /etc/hosts${NC}"
 echo ""
 
 # Made with Bob

@@ -12,15 +12,21 @@ echo -e "${BLUE}Testing Affiliate Junction Connections${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
+# Load environment variables
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # Activate virtual environment
 source .venv/bin/activate
 
 # Test 1: HCD Connection
 echo -e "${BLUE}1. Testing HCD Connection...${NC}"
-if ./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -e "SELECT cluster_name FROM system.local;" 2>/dev/null | grep -q "Test Cluster"; then
-    echo -e "${GREEN}✓ HCD is connected and responding${NC}"
+HCD_HOST=${HCD_HOST:-127.0.0.1}
+if ./hcd-1.2.3/bin/hcd cqlsh ${HCD_HOST} -u cassandra -p cassandra -e "SELECT cluster_name FROM system.local;" 2>/dev/null | grep -q "Test Cluster"; then
+    echo -e "${GREEN}✓ HCD is connected and responding at ${HCD_HOST}${NC}"
 else
-    echo -e "${RED}✗ HCD connection failed${NC}"
+    echo -e "${RED}✗ HCD connection failed at ${HCD_HOST}${NC}"
 fi
 echo ""
 
@@ -61,7 +67,7 @@ echo ""
 
 # Test 4: Check HCD tables
 echo -e "${BLUE}4. Checking HCD Tables...${NC}"
-HCD_TABLES=$(./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -e "USE affiliate_junction; DESCRIBE TABLES;" 2>/dev/null | grep -v "Warning:" | grep -v "Recommendation:" | tail -1)
+HCD_TABLES=$(./hcd-1.2.3/bin/hcd cqlsh ${HCD_HOST} -u cassandra -p cassandra -e "USE affiliate_junction; DESCRIBE TABLES;" 2>/dev/null | grep -v "Warning:" | grep -v "Recommendation:" | tail -1)
 if [ ! -z "$HCD_TABLES" ]; then
     echo -e "${GREEN}✓ HCD tables exist:${NC}"
     echo "  $HCD_TABLES"
@@ -104,9 +110,9 @@ echo ""
 
 # Test 7: Check for data in HCD
 echo -e "${BLUE}7. Checking for Data in HCD...${NC}"
-IMPRESSION_COUNT=$(./hcd-1.2.3/bin/hcd cqlsh 127.0.0.1 -u cassandra -p cassandra -e "SELECT COUNT(*) FROM affiliate_junction.impressions;" 2>/dev/null | grep -E "^\s*[0-9]+" | tr -d ' ')
+IMPRESSION_COUNT=$(./hcd-1.2.3/bin/hcd cqlsh ${HCD_HOST} -u cassandra -p cassandra -e "SELECT COUNT(*) FROM affiliate_junction.impression_tracking;" 2>/dev/null | grep -E "^\s*[0-9]+" | tr -d ' ')
 if [ ! -z "$IMPRESSION_COUNT" ] && [ "$IMPRESSION_COUNT" -gt 0 ]; then
-    echo -e "${GREEN}✓ HCD has data: $IMPRESSION_COUNT impressions${NC}"
+    echo -e "${GREEN}✓ HCD has data: $IMPRESSION_COUNT impression records${NC}"
 else
     echo -e "${YELLOW}⚠ No data in HCD yet (services may still be starting)${NC}"
 fi
