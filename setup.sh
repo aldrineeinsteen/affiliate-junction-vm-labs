@@ -237,8 +237,23 @@ pip install -r requirements.txt
 echo -e "${GREEN}✓ Python environment ready${NC}"
 
 # Create .env file
-cp env-sample .env
-echo -e "${GREEN}✓ Environment file created${NC}"
+echo ""
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Configuring Environment${NC}"
+echo -e "${BLUE}========================================${NC}"
+if [ ! -f ".env" ]; then
+    echo -e "${BLUE}Creating .env from env-sample...${NC}"
+    cp env-sample .env
+    echo -e "${GREEN}✓ Environment file created${NC}"
+else
+    echo -e "${BLUE}.env file already exists, updating HCD_HOST...${NC}"
+fi
+
+# Update HCD_HOST to use PRIVATE_IP where HCD is actually listening
+echo -e "${BLUE}Updating HCD_HOST to ${PRIVATE_IP}...${NC}"
+sed -i "s/^HCD_HOST=.*/HCD_HOST=${PRIVATE_IP}/" .env
+echo -e "${GREEN}✓ HCD_HOST set to ${PRIVATE_IP}${NC}"
+echo -e "${BLUE}Services will connect to HCD at ${PRIVATE_IP}:9042${NC}"
 
 # Configure git
 git config --global user.email "you@example.com"
