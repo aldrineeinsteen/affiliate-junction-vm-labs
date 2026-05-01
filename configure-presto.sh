@@ -93,35 +93,70 @@ sed -i "s|^PRESTO_CATALOG=.*|PRESTO_CATALOG=${PRESTO_CATALOG}|" .env
 sed -i "s|^PRESTO_SCHEMA=.*|PRESTO_SCHEMA=${PRESTO_SCHEMA}|" .env
 echo -e "${GREEN}✓ .env file updated (PRESTO_HOST=ibm-lh-presto-svc)${NC}"
 
-# Fetch and save SSL certificate automatically
+# Get SSL certificate from user
 echo ""
-echo -e "${BLUE}Fetching SSL certificate from Presto endpoint...${NC}"
-sudo mkdir -p /certs
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}SSL Certificate Configuration${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+echo -e "${YELLOW}Please paste the SSL certificate chain for Presto.${NC}"
+echo -e "${YELLOW}This should include the server certificate AND intermediate CA certificates.${NC}"
+echo ""
+echo -e "${BLUE}To get the certificate chain, run this command on your local machine:${NC}"
+echo -e "${GREEN}echo | openssl s_client -connect ${PRESTO_HOSTNAME}:${PRESTO_PORT} -servername ${PRESTO_HOSTNAME} -showcerts 2>/dev/null | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p'${NC}"
+echo ""
+echo -e "${YELLOW}Copy the entire output (all certificates) and paste below.${NC}"
+echo -e "${YELLOW}Press Ctrl+D when done (or type 'END' on a new line).${NC}"
+echo ""
 
-# Fetch certificate from the server
-if echo | openssl s_client -connect "${PRESTO_HOSTNAME}:${PRESTO_PORT}" -servername "${PRESTO_HOSTNAME}" 2>/dev/null | openssl x509 -outform PEM | sudo tee /certs/presto.crt > /dev/null; then
-    sudo chmod 644 /certs/presto.crt
-    echo -e "${GREEN}✓ Certificate fetched and saved to /certs/presto.crt${NC}"
-    
-    # Verify certificate
-    if openssl x509 -in /certs/presto.crt -text -noout > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Certificate is valid${NC}"
-        CERT_SUBJECT=$(openssl x509 -in /certs/presto.crt -subject -noout | sed 's/subject=//')
-        CERT_ISSUER=$(openssl x509 -in /certs/presto.crt -issuer -noout | sed 's/issuer=//')
-        CERT_DATES=$(openssl x509 -in /certs/presto.crt -dates -noout)
-        echo -e "${BLUE}  Subject: ${CERT_SUBJECT}${NC}"
-        echo -e "${BLUE}  Issuer: ${CERT_ISSUER}${NC}"
-        echo -e "${BLUE}  ${CERT_DATES}${NC}"
-    else
-        echo -e "${RED}✗ Certificate validation failed${NC}"
-        exit 1
+# Create temp file for certificate input
+CERT_TEMP=$(mktemp)
+
+# Read certificate from stdin until EOF or 'END'
+while IFS= read -r line; do
+    if [ "$line" = "END" ]; then
+        break
     fi
+    echo "$line" >> "$CERT_TEMP"
+done
+
+# Check if certificate was provided
+if [ ! -s "$CERT_TEMP" ]; then
+    echo -e "${RED}✗ No certificate provided${NC}"
+    rm -f "$CERT_TEMP"
+    exit 1
+fi
+
+# Validate certificate format
+if ! grep -q "BEGIN CERTIFICATE" "$CERT_TEMP"; then
+    echo -e "${RED}✗ Invalid certificate format (missing BEGIN CERTIFICATE)${NC}"
+    rm -f "$CERT_TEMP"
+    exit 1
+fi
+
+# Count certificates in chain
+CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "$CERT_TEMP")
+echo ""
+echo -e "${BLUE}Found ${CERT_COUNT} certificate(s) in chain${NC}"
+
+# Save certificate to /certs/presto.crt
+sudo mkdir -p /certs
+sudo cp "$CERT_TEMP" /certs/presto.crt
+sudo chmod 644 /certs/presto.crt
+rm -f "$CERT_TEMP"
+
+# Verify first certificate in chain
+if openssl x509 -in /certs/presto.crt -text -noout > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Certificate is valid${NC}"
+    CERT_SUBJECT=$(openssl x509 -in /certs/presto.crt -subject -noout | sed 's/subject=//')
+    CERT_ISSUER=$(openssl x509 -in /certs/presto.crt -issuer -noout | sed 's/issuer=//')
+    CERT_DATES=$(openssl x509 -in /certs/presto.crt -dates -noout)
+    echo -e "${BLUE}  Subject: ${CERT_SUBJECT}${NC}"
+    echo -e "${BLUE}  Issuer: ${CERT_ISSUER}${NC}"
+    echo -e "${BLUE}  ${CERT_DATES}${NC}"
+    echo -e "${GREEN}✓ Certificate saved to /certs/presto.crt${NC}"
 else
-    echo -e "${RED}✗ Failed to fetch certificate from ${PRESTO_HOSTNAME}:${PRESTO_PORT}${NC}"
-    echo -e "${YELLOW}Please check:${NC}"
-    echo -e "  • Hostname and port are correct"
-    echo -e "  • Server is accessible from this machine"
-    echo -e "  • Firewall allows outbound HTTPS connections"
+    echo -e "${RED}✗ Certificate validation failed${NC}"
     exit 1
 fi
 
