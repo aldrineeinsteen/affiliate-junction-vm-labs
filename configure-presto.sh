@@ -47,6 +47,45 @@ PRESTO_CATALOG=${PRESTO_CATALOG:-iceberg_data}
 read -p "Presto Schema [affiliate_junction]: " PRESTO_SCHEMA
 PRESTO_SCHEMA=${PRESTO_SCHEMA:-affiliate_junction}
 
+# For SaaS, try to auto-detect or prompt for schema location
+PRESTO_SCHEMA_LOCATION=""
+if [[ "$PRESTO_USER" == ibmlhapikey_* ]]; then
+    echo ""
+    echo -e "${BLUE}Attempting to auto-detect S3 bucket location...${NC}"
+    
+    # Create temporary .env for detection script
+    cat > /tmp/presto_detect.env << EOF
+PRESTO_HOST=${PRESTO_HOSTNAME}
+PRESTO_PORT=${PRESTO_PORT}
+PRESTO_USER=${PRESTO_USER}
+PRESTO_PASSWD=${PRESTO_PASSWD}
+PRESTO_CATALOG=${PRESTO_CATALOG}
+PRESTO_SCHEMA=${PRESTO_SCHEMA}
+PRESTO_USE_IAM=true
+PRESTO_SSL_VERIFY=false
+EOF
+    
+    # Try to detect bucket location
+    if [ -f "detect_schema_location.py" ] && [ -d ".venv" ]; then
+        source .venv/bin/activate 2>/dev/null || true
+        DETECTED_LOCATION=$(python3 detect_schema_location.py 2>/dev/null | grep "^s3a://" | tail -1)
+        if [ -n "$DETECTED_LOCATION" ]; then
+            echo -e "${GREEN}✓ Auto-detected location: ${DETECTED_LOCATION}${NC}"
+            PRESTO_SCHEMA_LOCATION="$DETECTED_LOCATION"
+        fi
+    fi
+    
+    # If auto-detection failed, prompt manually
+    if [ -z "$PRESTO_SCHEMA_LOCATION" ]; then
+        echo -e "${YELLOW}Could not auto-detect bucket location.${NC}"
+        echo -e "${YELLOW}Please specify the S3 bucket location for schema creation.${NC}"
+        echo -e "${YELLOW}Example: s3a://watsonx-data-b7aff58a-1584-4841-bc14-4a710dfffd20/affiliate_junction${NC}"
+        read -p "Schema Location (S3 path): " PRESTO_SCHEMA_LOCATION
+    fi
+    
+    rm -f /tmp/presto_detect.env
+fi
+
 echo ""
 echo -e "${BLUE}Configuration Summary:${NC}"
 echo -e "  Hostname: ${PRESTO_HOSTNAME}"
@@ -55,6 +94,9 @@ echo -e "  Username: ${PRESTO_USER}"
 echo -e "  Password: ********"
 echo -e "  Catalog: ${PRESTO_CATALOG}"
 echo -e "  Schema: ${PRESTO_SCHEMA}"
+if [ -n "$PRESTO_SCHEMA_LOCATION" ]; then
+    echo -e "  Schema Location: ${PRESTO_SCHEMA_LOCATION}"
+fi
 echo ""
 
 read -p "Is this correct? (y/n): " CONFIRM
@@ -103,6 +145,15 @@ sed -i "s|^PRESTO_USER=.*|PRESTO_USER=${PRESTO_USER}|" .env
 sed -i "s|^PRESTO_PASSWD=.*|PRESTO_PASSWD=${PRESTO_PASSWD}|" .env
 sed -i "s|^PRESTO_CATALOG=.*|PRESTO_CATALOG=${PRESTO_CATALOG}|" .env
 sed -i "s|^PRESTO_SCHEMA=.*|PRESTO_SCHEMA=${PRESTO_SCHEMA}|" .env
+
+# Set schema location if provided
+if [ -n "$PRESTO_SCHEMA_LOCATION" ]; then
+    if grep -q "^PRESTO_SCHEMA_LOCATION=" .env; then
+        sed -i "s|^PRESTO_SCHEMA_LOCATION=.*|PRESTO_SCHEMA_LOCATION=${PRESTO_SCHEMA_LOCATION}|" .env
+    else
+        echo "PRESTO_SCHEMA_LOCATION=${PRESTO_SCHEMA_LOCATION}" >> .env
+    fi
+fi
 
 # Set IAM authentication flag
 if grep -q "^PRESTO_USE_IAM=" .env; then

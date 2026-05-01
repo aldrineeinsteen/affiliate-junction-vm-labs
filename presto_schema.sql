@@ -1,5 +1,7 @@
 
--- Create schema if it doesn't exist  
+-- Create schema if it doesn't exist
+-- Note: For watsonx.data SaaS, the location will be replaced by schema_executor.py
+-- with the correct bucket path from PRESTO_SCHEMA_LOCATION environment variable
 CREATE SCHEMA IF NOT EXISTS iceberg_data.affiliate_junction
 WITH (location = 's3a://iceberg-bucket/affiliate_junction/');
 

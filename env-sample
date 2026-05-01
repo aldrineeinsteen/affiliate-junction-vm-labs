@@ -49,6 +49,11 @@ PRESTO_PASSWD=password
 PRESTO_CATALOG=iceberg_data
 PRESTO_SCHEMA=affiliate_junction
 
+# For watsonx.data SaaS: S3 bucket location for schema creation
+# Example: s3a://watsonx-data-b7aff58a-1584-4841-bc14-4a710dfffd20/affiliate_junction
+# Leave empty for local/developer edition (uses default location)
+PRESTO_SCHEMA_LOCATION=
+
 # Set to 'true' to use IBM Cloud IAM authentication (for watsonx.data SaaS)
 # When true, PRESTO_PASSWD is treated as an IBM Cloud API key
 PRESTO_USE_IAM=false

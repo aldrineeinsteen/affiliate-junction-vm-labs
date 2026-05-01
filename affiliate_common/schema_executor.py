@@ -156,6 +156,16 @@ class SchemaExecutor:
             schema_content = schema_content.replace('iceberg_data.', f'{catalog_name}.')
             logger.info(f"Using Presto catalog: {catalog_name}")
             
+            # Replace schema location if specified (for watsonx.data SaaS)
+            schema_location = os.getenv('PRESTO_SCHEMA_LOCATION')
+            if schema_location:
+                # Replace the default location with the actual bucket path
+                schema_content = schema_content.replace(
+                    "location = 's3a://iceberg-bucket/affiliate_junction/'",
+                    f"location = '{schema_location}'"
+                )
+                logger.info(f"Using schema location: {schema_location}")
+            
             # Remove comments and split by semicolons
             lines = schema_content.split('\n')
             cleaned_lines = []
